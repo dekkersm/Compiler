@@ -2,7 +2,7 @@ from sly import Lexer
 
 
 class CPLLexer(Lexer):
-    tokens = {BREAK, CASE, DEFAULT, ELSE, FLOAT, IF, INPUT, INT, OUTPUT, SWITCH, WHILE,
+    tokens = {ELSE, FLOAT, IF, INPUT, INT, OUTPUT, WHILE,
               # operators
               RELOP, ADDOP, MULOP, OR, AND, NOT, CAST,
               # extra symbols
@@ -14,16 +14,12 @@ class CPLLexer(Lexer):
     ignore = ' \t'
     ignore_comment = r'\/\*(\*(?!\/)|[^*])*\*\/'
 
-    BREAK = r'break'
-    CASE = r'case'
-    DEFAULT = r'default'
     ELSE = r'else'
     FLOAT = r'float'
     IF = r'if'
     INPUT = r'input'
     INT = 'int'
     OUTPUT = 'output'
-    SWITCH = 'switch'
     WHILE = r'while'
 
     RELOP = r'==|!=|>=|<=|<|>'
@@ -32,7 +28,14 @@ class CPLLexer(Lexer):
     OR = r'\|\|'
     AND = r'&&'
     NOT = r'!'
-    CAST = r'static\_cast<(int|float)>'
+
+    @_(r'static\_cast<(int|float)>')
+    def CAST(self, t):
+        if 'int' in t.value:
+            t.value = 'int'
+        else:
+            t.value = 'float'
+        return t
 
     ID = r'[a-zA-Z][a-zA-Z0-9]*'
 
