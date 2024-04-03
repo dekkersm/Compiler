@@ -1,3 +1,5 @@
+import logging
+
 from sly import Parser
 from cpl_lexer import CPLLexer
 
@@ -148,3 +150,7 @@ class CPLParser(Parser):
     @_('')
     def empty(self, p):
         pass
+
+    def error(self, token):
+        logger = logging.getLogger()
+        logger.error(f'SYNTAX ERROR: near token "{token.value}" at line {token.lineno}')

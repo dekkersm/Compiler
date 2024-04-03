@@ -1,35 +1,47 @@
+import logging
+import sys
+
 from cpl_lexer import CPLLexer
 from cpl_parser import CPLParser
 from symbol_table import SymTable
 from quad import QuadCode
 
 if __name__ == '__main__':
-    data = ''' a, b: float;
-c, d: int;
-/* TODO: Test! */
-{
-    /* Cast is required here! */
-    c = static_cast<int>(a + d);
-    c = static_cast<int>(a) + d;
-    b = a + static_cast<int>(d);
+    args = sys.argv[1:]
+    logger = logging.getLogger()
+    logger.error(f"------------May Dekkers---------------")
 
-    c = static_cast<int>(static_cast<float>(a) * static_cast<float>(c));
+    if len(args) == 1 and args[0].split('.')[1] == 'ou':
+        file_path = args[0]
+        file_name = file_path.split('.')[0]
+        try:
+            with open(file_path, 'r') as f:
+                source = f.read()
+        except IOError:
+            logger.error(f"Failed to open source file {file_path}")
+            exit(-1)
 
-    /* Both should produce the same Quad code. */
-    b = static_cast<int>(b) + static_cast<int>(a);
-    b = static_cast<float>(static_cast<int>(b) + static_cast<int>(a));
-}
-'''
-    lexer = CPLLexer()
-    # for tok in lexer.tokenize(data):
-    #     print(tok)
+        lexer = CPLLexer()
+        sym_table = SymTable()
+        parser = CPLParser(sym_table)
 
-    sym_table = SymTable()
-    parser = CPLParser(sym_table)
+        try:
+            ast = parser.parse(lexer.tokenize(source))
+            print(f'parsed ast: \n{ast}')
+        except EOFError:
+            logger.error(f"Failed read clp file! {file_path}")
+            exit(-1)
 
-    try:
-        ast = parser.parse(lexer.tokenize(data))
-        print(ast)
-        QuadCode(ast, sym_table)
-    except EOFError:
-        print("end")
+        if ast is not None:
+            code = QuadCode(ast, sym_table)
+            if code is not None:
+                code.create_file(file_name + '.qud')
+            else:
+                logger.error(f"Encountered errors while trying to compile {file_path}!")
+                exit(-1)
+        else:
+            logger.error(f"Encountered syntax errors while trying to parse {file_path}!")
+            exit(-1)
+    else:
+        logger.error(f"Bad arguments. terminating compiler")
+        exit(-1)

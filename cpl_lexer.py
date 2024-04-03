@@ -1,3 +1,5 @@
+import logging
+
 from sly import Lexer
 
 
@@ -53,5 +55,6 @@ class CPLLexer(Lexer):
         self.lineno += t.value.count('\n')
 
     def error(self, t):
-        print('Line %d: Bad character %r' % (self.lineno, t.value[0]))
+        logger = logging.getLogger()
+        logger.error(f'Lexer Error: Line {self.lineno}: Bad character {t.value[0]}')
         self.index += 1
