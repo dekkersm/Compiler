@@ -4,15 +4,20 @@ from symbol_table import SymTable
 from quad import QuadCode
 
 if __name__ == '__main__':
-    data = ''' /* Min - Finding minimum between two numbers */
-a, b: float;
+    data = ''' a, b: float;
+c, d: int;
+/* TODO: Test! */
 {
-   input(a);
-   input(b);
-   if (a < 2.5)
-      output(a);
-    else
-      output(b);
+    /* Cast is required here! */
+    c = static_cast<int>(a + d);
+    c = static_cast<int>(a) + d;
+    b = a + static_cast<int>(d);
+
+    c = static_cast<int>(static_cast<float>(a) * static_cast<float>(c));
+
+    /* Both should produce the same Quad code. */
+    b = static_cast<int>(b) + static_cast<int>(a);
+    b = static_cast<float>(static_cast<int>(b) + static_cast<int>(a));
 }
 '''
     lexer = CPLLexer()
