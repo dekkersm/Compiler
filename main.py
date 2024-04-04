@@ -24,17 +24,21 @@ if __name__ == '__main__':
         lexer = CPLLexer()
         sym_table = SymTable()
         parser = CPLParser(sym_table)
+        should_create_file = True
+        ast = None
 
         try:
             ast = parser.parse(lexer.tokenize(source))
+            should_create_file = not (lexer.were_errors or parser.were_errors)
             print(f'parsed ast: \n{ast}')
         except EOFError:
-            logger.error(f"Failed read clp file! {file_path}")
+            logger.error(f"Failed read cpl file! {file_path}")
             exit(-1)
 
         if ast is not None:
             code = QuadCode(ast, sym_table)
-            if code is not None:
+            should_create_file = code.success
+            if code is not None and should_create_file:
                 code.create_file(file_name + '.qud')
             else:
                 logger.error(f"Encountered errors while trying to compile {file_path}!")

@@ -5,14 +5,15 @@ from cpl_lexer import CPLLexer
 
 
 class CPLParser(Parser):
-
     def __init__(self, symbol_table):
         super().__init__()
         self.symbolTable = symbol_table
+        self.logger = logging.getLogger()
+        self.were_errors = False
 
     # Get the token list from the lexer (required)
     tokens = CPLLexer.tokens
-    debugfile = 'parser.out'
+    # debugfile = 'parser.out'
 
     # Grammar rules and actions
     @_('declarations stmt_block')
@@ -33,7 +34,8 @@ class CPLParser(Parser):
             if not self.symbolTable.search(token):
                 self.symbolTable.insert(token, p.type)
             else:
-                return f'ERROR: Variable already defined at line {p.lineno}'
+                self.logger.error(f'ERROR: "{token}" Variable already defined at line {p.lineno}')
+                self.were_errors = True
         return 'declaration', p.idlist, p.type
 
     @_('INT',
@@ -151,6 +153,9 @@ class CPLParser(Parser):
     def empty(self, p):
         pass
 
-    def error(self, token):
-        logger = logging.getLogger()
-        logger.error(f'SYNTAX ERROR: near token "{token.value}" at line {token.lineno}')
+    def error(self, p):
+        self.were_errors = True
+        if p:
+            self.logger.error(f'SYNTAX ERROR: at token "{p.value}" in line {p.lineno}')
+        else:
+            self.logger.error("Syntax error at EOF")

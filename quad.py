@@ -1,3 +1,4 @@
+import logging
 import textwrap
 
 
@@ -28,11 +29,14 @@ class QuadCode:
         self.label_count = 0
         self.temp_count = 0
         self.symbolTable = symbol_table
+        self.logger = logging.getLogger()
+        self.success = True
 
         self.code = self.walk_tree(tree)
         print(self.code)
 
     def create_file(self, path):
+        # format file
         self.code = textwrap.indent(self.code, 5 * ' ', lambda line: ':' not in line)
         with open(path, 'w') as f:
             f.writelines(self.code)
@@ -45,23 +49,39 @@ class QuadCode:
         self.temp_count = self.temp_count + 1
         return '$temp' + str(self.temp_count)
 
+    # returns the new var id, the new type and code lines
+    def cast_expression(self, var, curr_type, to_type):
+        code_lines = ''
+        # do nothing if equal
+        if not curr_type == to_type:
+            old_var = var
+            var = self.gen_temp()
+            if to_type == 'float':
+                code_lines = f'ITOR {var} {old_var}\n'
+            else:
+                code_lines = f'RTOI {var} {old_var}\n'
+        return var, to_type, code_lines
+
+    # returns the execution return identifier and the added code lines
     def rel_op(self, relop, exp0, exp0_type, exp1, exp1_type, added_lines):
-        # TODO: handle >= and <=
         temp_var = self.gen_temp()
         if exp0_type == 'int' and exp1_type == 'int':
             if relop == '>=' or relop == '<=':
-                relop = relop[0]
+                # for these relops, take the first char in '<=/>=' and flip the attributes
+                # then, preform not on the result
+                return temp_var, added_lines + f'{self.int_op_dict.get(relop[0])} {temp_var} {exp1} {exp0}\n' \
+                                               f'{self.int_op_dict.get("==")} {temp_var} {temp_var} {0}\n'
             return temp_var, added_lines + f'{self.int_op_dict.get(relop)} {temp_var} {exp0} {exp1}\n'
         else:
             # cast int expression to float
-            if exp0_type == 'int':
-                old_exp = exp0
-                exp0 = self.gen_temp()
-                added_lines = added_lines + f'ITOR {exp0} {old_exp}\n'
-            elif exp1_type == 'int':
-                old_exp = exp1
-                exp1 = self.gen_temp()
-                added_lines = added_lines + f'ITOR {exp1} {old_exp}\n'
+            exp0, exp0_type, new0_lines = self.cast_expression(exp0, exp0_type, 'float')
+            exp1, exp1_type, new1_lines = self.cast_expression(exp1, exp1_type, 'float')
+            added_lines = added_lines + new0_lines + new1_lines
+            if relop == '>=' or relop == '<=':
+                # for these relops, take the first char in '<=/>=' and flip the attributes
+                # then, preform not on the result
+                return temp_var, added_lines + f'{self.float_op_dict.get(relop[0])} {temp_var} {exp1} {exp0}\n' \
+                                               f'{self.float_op_dict.get("==")} {temp_var} {temp_var} {0}\n'
             return temp_var, added_lines + f'{self.float_op_dict.get(relop)} {temp_var} {exp0} {exp1}\n'
 
     def bin_op(self, op, left, left_type, right, right_type, added_lines):
@@ -70,15 +90,10 @@ class QuadCode:
             return temp_var, 'int', added_lines + f'{self.int_op_dict.get(op)} {temp_var} {left} {right}\n'
         else:
             # cast int expression to float
-            if left_type == 'int':
-                old_exp = left
-                left = self.gen_temp()
-                added_lines = added_lines + f'ITOR {left} {old_exp}\n'
-            elif right_type == 'int':
-                old_exp = right
-                right = self.gen_temp()
-                added_lines = added_lines + f'ITOR {right} {old_exp}\n'
-            return temp_var, 'float', added_lines + f'{self.float_op_dict.get(op)} {temp_var} {left} {right}\n'
+            left, left_type, new0_lines = self.cast_expression(left, left_type, 'float')
+            right, right_type, new1_lines = self.cast_expression(right, right_type, 'float')
+            return temp_var, 'float', \
+                added_lines + new0_lines + new1_lines + f'{self.float_op_dict.get(op)} {temp_var} {left} {right}\n'
 
     def walk_tree(self, node):
         # literals
@@ -91,14 +106,17 @@ class QuadCode:
             if var_type:
                 return node, var_type, ''
             else:
-                print('ERROR')
+                self.logger.error(f'ERROR: Using undefined symbol {node}!')
+                self.success = False
+                return '', '', ''
 
         elif node is None:
             return None
 
         # first node
         elif node[0] == 'program':
-            return self.walk_tree(node[2]) + 'HALT'
+            return self.walk_tree(node[2]) + 'HALT\n' \
+                                             'May Dekkers'
 
         # return id and num values
         elif node[0] == 'num':
@@ -110,17 +128,10 @@ class QuadCode:
         elif node[0] == 'cast_expression':
             new_type = node[1]
             var, var_type, added_lines = self.walk_tree(node[2])
-            # do nothing if equal
-            if not new_type == var_type:
-                old_var = var
-                var = self.gen_temp()
-                if new_type == 'float':
-                    added_lines = added_lines + f'ITOR {var} {old_var}\n'
-                else:
-                    added_lines = added_lines + f'RTOI {var} {old_var}\n'
-            return var, new_type, added_lines
+            var, new_type, new_lines = self.cast_expression(var, var_type, new_type)
+            return var, new_type, added_lines + new_lines
 
-        # operations
+        # operations:
         elif node[0] == '&&':
             boolterm, boolterm_lines = self.walk_tree(node[1])
             boolfactor, boolfactor_lines = self.walk_tree(node[2])
@@ -134,15 +145,14 @@ class QuadCode:
             var = self.gen_temp()
             return var, added_lines + f'IADD {var} {boolexpr} {boolterm}\n'
 
-        elif node[0] == 'not_boolexpr':  # returns temp_var
+        elif node[0] == 'not_boolexpr':  # returns the execution return value and the added code lines
             exp, added_lines = self.walk_tree(node[1])
-            temp_var = self.gen_temp()
             if exp.type == 'int':
-                return temp_var, added_lines + f'IEQL {temp_var} {exp} 0\n'
+                return exp, added_lines + f'IEQL {exp} {exp} 0\n'
             else:
-                return temp_var, added_lines + f'REQL {temp_var} {exp} 0.0\n'
+                return exp, added_lines + f'REQL {exp} {exp} 0.0\n'
 
-        elif node[0] == 'relop':  # returns temp_var
+        elif node[0] == 'relop':
             relop = node[1]
             exp0, exp0_type, exp0_lines = self.walk_tree(node[2])
             exp1, exp1_type, exp1_lines = self.walk_tree(node[3])
@@ -188,7 +198,9 @@ class QuadCode:
                 new_right = self.gen_temp()
                 return expr_lines + f'ITOR {new_right} {right}\n' + f'RASN {left} {new_right}\n'
             else:
-                print('ERROR')
+                self.logger.error(f'ERROR: Cannot convert float to int!')
+                self.success = False
+                return ''
 
         elif node[0] == 'if_stmt':
             bool_var, bool_lines = self.walk_tree(node[1])
@@ -215,4 +227,5 @@ class QuadCode:
             return while_stmt
 
         else:
-            print('error')
+            self.logger.error(f'ERROR: Encountered unexpected token {node[0]}')
+            self.success = False

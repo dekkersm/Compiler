@@ -4,6 +4,11 @@ from sly import Lexer
 
 
 class CPLLexer(Lexer):
+
+    def __init__(self):
+        super().__init__()
+        self.were_errors = False
+
     tokens = {ELSE, FLOAT, IF, INPUT, INT, OUTPUT, WHILE,
               # operators
               RELOP, ADDOP, MULOP, OR, AND, NOT, CAST,
@@ -57,4 +62,5 @@ class CPLLexer(Lexer):
     def error(self, t):
         logger = logging.getLogger()
         logger.error(f'Lexer Error: Line {self.lineno}: Bad character {t.value[0]}')
+        self.were_errors = True
         self.index += 1
