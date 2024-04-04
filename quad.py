@@ -33,7 +33,7 @@ class QuadCode:
         self.success = True
 
         self.code = self.walk_tree(tree)
-        print(self.code)
+        # print(self.code)
 
     def create_file(self, path):
         # format file
@@ -147,10 +147,7 @@ class QuadCode:
 
         elif node[0] == 'not_boolexpr':  # returns the execution return value and the added code lines
             exp, added_lines = self.walk_tree(node[1])
-            if exp.type == 'int':
-                return exp, added_lines + f'IEQL {exp} {exp} 0\n'
-            else:
-                return exp, added_lines + f'REQL {exp} {exp} 0.0\n'
+            return exp, added_lines + f'IEQL {exp} {exp} 0\n'
 
         elif node[0] == 'relop':
             relop = node[1]

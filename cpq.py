@@ -11,9 +11,9 @@ if __name__ == '__main__':
     logger = logging.getLogger()
     logger.error(f"------------May Dekkers---------------")
 
-    if len(args) == 1 and args[0].split('.')[1] == 'ou':
+    if len(args) == 1 and args[0].endswith('.ou'):
         file_path = args[0]
-        file_name = file_path.split('.')[0]
+        file_name = file_path.split('.ou')[0]
         try:
             with open(file_path, 'r') as f:
                 source = f.read()
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         try:
             ast = parser.parse(lexer.tokenize(source))
             should_create_file = not (lexer.were_errors or parser.were_errors)
-            print(f'parsed ast: \n{ast}')
+            # print(f'parsed ast: \n{ast}')
         except EOFError:
             logger.error(f"Failed read cpl file! {file_path}")
             exit(-1)
@@ -40,6 +40,7 @@ if __name__ == '__main__':
             should_create_file = code.success
             if code is not None and should_create_file:
                 code.create_file(file_name + '.qud')
+                print(f"Successfully created {file_name}.qud file!")
             else:
                 logger.error(f"Encountered errors while trying to compile {file_path}!")
                 exit(-1)
